@@ -8,10 +8,41 @@ kiwi.plugin('tombola', (kiwi) => {
 
     kiwi.addUi('header_channel', GameButton);
 
-    const allowedChannelsSetting = kiwi.state.getSetting
-        ? kiwi.state.getSetting('tombola.allowedChannels')
-        : [];
-    Utils.setAllowedChannels(allowedChannelsSetting);
+    const resolveAllowedChannels = () => {
+        const directSetting = kiwi.state.getSetting
+            ? kiwi.state.getSetting('tombola.allowedChannels')
+            : null;
+        if (Array.isArray(directSetting)) {
+            return directSetting;
+        }
+        const nestedSetting = kiwi.state.getSetting
+            ? kiwi.state.getSetting('tombola')
+            : null;
+        if (nestedSetting && Array.isArray(nestedSetting.allowedChannels)) {
+            return nestedSetting.allowedChannels;
+        }
+        const configSettings = kiwi.config && kiwi.config.settings ? kiwi.config.settings : null;
+        if (!configSettings) {
+            return [];
+        }
+        if (Array.isArray(configSettings['tombola.allowedChannels'])) {
+            return configSettings['tombola.allowedChannels'];
+        }
+        if (configSettings.tombola && Array.isArray(configSettings.tombola.allowedChannels)) {
+            return configSettings.tombola.allowedChannels;
+        }
+        return [];
+    };
+
+    const updateAllowedChannels = () => {
+        Utils.setAllowedChannels(resolveAllowedChannels());
+        kiwi.emit('plugin-tombola.update-button');
+    };
+
+    updateAllowedChannels();
+    if (kiwi.state.$watch) {
+        kiwi.state.$watch('settings', updateAllowedChannels);
+    }
 
     // Listen to incoming messages
     kiwi.on('irc.raw.TAGMSG', (command, event, network) => {
