@@ -13,6 +13,8 @@ const config = {
     minPlayers: Number(process.env.TOMBOLA_MIN_PLAYERS || 3),
     waitSeconds: Number(process.env.TOMBOLA_WAIT_SECONDS || 60),
     drawIntervalSeconds: Number(process.env.TOMBOLA_DRAW_INTERVAL || 20),
+    tls: process.env.TOMBOLA_TLS === 'true',
+    tlsRejectUnauthorized: process.env.TOMBOLA_TLS_REJECT_UNAUTHORIZED !== 'false',
 };
 
 const state = {
@@ -195,4 +197,6 @@ clientInstance.connect({
     nick: config.nick,
     username: config.username,
     gecos: config.realname,
+    tls: config.tls,
+    rejectUnauthorized: config.tlsRejectUnauthorized,
 });
