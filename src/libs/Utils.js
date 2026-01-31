@@ -1,9 +1,12 @@
-import TicTacToe from './TicTacToe.js';
+import TombolaGame from './TombolaGame.js';
 
 const games = {};
+const cardStoragePrefix = 'tombola-card';
+let allowedChannels = [];
 
-export function newGame(network, localPlayer, remotePlayer) {
-    games[remotePlayer] = new TicTacToe(network, localPlayer, remotePlayer);
+export function newGame(network, channel, localPlayer) {
+    const storedCard = loadCard(network, channel, localPlayer);
+    games[channel] = new TombolaGame(network, channel, localPlayer, storedCard);
 }
 
 export function getGame(key) {
@@ -25,35 +28,46 @@ export function getGames() {
 export function sendData(network, target, data) {
     let msg = new network.ircClient.Message('TAGMSG', target);
     msg.prefix = network.nick;
-    msg.tags['+kiwiirc.com/ttt'] = JSON.stringify(data);
+    msg.tags['+ayna.org/tombola'] = JSON.stringify(data);
     network.ircClient.raw(msg);
 }
 
-export function terminateGame(game) {
-    if (!game) {
-        return;
-    }
-    let network = game.getNetwork();
-    // eslint-disable-next-line no-undef
-    let buffer = kiwi.state.getBufferByName(network.id, game.getRemotePlayer());
+export function setAllowedChannels(channels) {
+    allowedChannels = Array.isArray(channels)
+        ? channels.map((channel) => channel.toLowerCase())
+        : [];
+}
 
-    if (network && game.getShowInvite()) {
-        sendData(network, game.getRemotePlayer(), { cmd: 'invite_declined' });
-    } else if (!game.getGameOver()) {
-        game.setGameOver(true);
-        if (network) {
-            sendData(network, game.getRemotePlayer(), { cmd: 'terminate' });
-        }
-        if (buffer) {
-            // eslint-disable-next-line no-undef
-            kiwi.state.addMessage(buffer, {
-                nick: '*',
-                message: 'You ended the game of Tic-Tac-Toe!',
-                type: 'message',
-            });
-        }
+export function isAllowedChannel(channel) {
+    if (!channel) {
+        return false;
     }
-    removeGame(game.getRemotePlayer());
+    if (!allowedChannels.length) {
+        return false;
+    }
+    return allowedChannels.includes(channel.toLowerCase());
+}
+
+export function storageKey(network, channel, nick) {
+    return `${cardStoragePrefix}:${network.id}:${channel}:${nick}`;
+}
+
+export function storeCard(network, channel, nick, card) {
+    try {
+        window.localStorage.setItem(storageKey(network, channel, nick), JSON.stringify(card));
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn('Tombola: unable to store card', error);
+    }
+}
+
+export function loadCard(network, channel, nick) {
+    try {
+        const stored = window.localStorage.getItem(storageKey(network, channel, nick));
+        return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+        return null;
+    }
 }
 
 export function incrementUnread(buffer) {

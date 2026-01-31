@@ -1,5 +1,5 @@
 {
-    "name": "kiwiirc-plugin-tictactoe",
+    "name": "kiwiirc-plugin-tombola",
     "version": "1.0.0",
     "main": "./src/plugin.js",
     "license": "Apache-2.0",

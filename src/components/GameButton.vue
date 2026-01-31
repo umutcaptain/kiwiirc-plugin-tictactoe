@@ -1,6 +1,6 @@
 <template>
     <div><div v-if="showButton" @click="buttonClicked">
-        <a>Play Tic Tac Toe</a>
+        <a>Tombala Kartı Al</a>
     </div></div>
 </template>
 
@@ -24,8 +24,11 @@ export default {
             let network = kiwi.state.getActiveNetwork();
             /* eslint-enable no-undef */
 
-            // Don't show the button if they have a chat to them self
-            if (network.nick === buffer.name) {
+            if (!buffer || !network) {
+                return false;
+            }
+
+            if (!Utils.isAllowedChannel(buffer.name)) {
                 return false;
             }
 
@@ -35,15 +38,11 @@ export default {
                 return true;
             }
 
-            // Decide if the button is needed or not
-            let gameActive = game.getShowGame() && !game.getGameOver();
-            let inviteActive = game.getInviteSent() || game.getShowInvite();
-            let ret = !gameActive && !inviteActive;
-            return ret;
+            return !game.getCard();
         },
     },
     mounted() {
-        this.listen(kiwi, 'plugin-tictactoe.update-button', () => {
+        this.listen(kiwi, 'plugin-tombola.update-button', () => {
             this.forceUpdateUI();
         });
     },
@@ -56,44 +55,21 @@ export default {
             let buffer = kiwi.state.getActiveBuffer();
             let network = buffer.getNetwork();
 
-            if (buffer.name === network.nick) {
+            if (!Utils.isAllowedChannel(buffer.name)) {
                 return;
             }
 
             if (!Utils.getGame(buffer.name)) {
-                Utils.newGame(network, network.nick, buffer.name);
+                Utils.newGame(network, buffer.name, network.nick);
             }
             let game = Utils.getGame(buffer.name);
-
-            let gameActive = game.getShowGame() && !game.getGameOver();
-            let inviteActive = game.getInviteSent() && game.getShowInvite();
-            if (gameActive || inviteActive) {
-                return;
+            if (!game.getCard()) {
+                game.setStatusMessage('Kart talebi gönderildi, bekleniyor...');
+            } else {
+                game.setStatusMessage('Kartınız hazır.');
             }
-
-            game.setInviteSent(true);
-            if (!game.getInviteTimeout()) {
-                game.setInviteTimeout(window.setTimeout(() => {
-                    game.setInviteTimeout(null);
-                    game.setInviteSent(false);
-
-                    // eslint-disable-next-line no-undef
-                    kiwi.state.addMessage(buffer, {
-                        nick: '*',
-                        message: 'The invite to ' + buffer.name +
-                            ' has timed out :( maybe they don\'t have the Tic-Tac-Toe plugin?',
-                        type: 'message',
-                    });
-                }, 4000));
-            }
+            Utils.sendData(network, buffer.name, { cmd: 'join', nick: network.nick });
             this.forceUpdateUI();
-            Utils.sendData(network, buffer.name, { cmd: 'invite' });
-            // eslint-disable-next-line no-undef
-            kiwi.state.addMessage(buffer, {
-                nick: '*',
-                message: buffer.name + ' has been invited to play Tic-Tac-Toe!',
-                type: 'message',
-            });
         },
     },
 };
