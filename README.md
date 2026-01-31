@@ -20,6 +20,30 @@ Example:
 }
 ```
 
+## Tombola bot
+
+This repository includes a simple `irc-framework` bot under `bot/` that controls the
+Tombola draw flow. Configure it with environment variables:
+
+```bash
+TOMBOLA_HOST=irc.example.org
+TOMBOLA_PORT=6667
+TOMBOLA_NICK=tombola-bot
+TOMBOLA_USER=tombola
+TOMBOLA_REAL="Tombola Bot"
+TOMBOLA_CHANNELS="#tombala,#oyunlar"
+TOMBOLA_MIN_PLAYERS=3
+TOMBOLA_WAIT_SECONDS=60
+TOMBOLA_DRAW_INTERVAL=20
+node bot/src/bot.js
+```
+
+The bot:
+- Starts a 60s lobby timer when the first player joins.
+- Begins draws every 20s once at least 3 players have joined.
+- Publishes cards and draw events with `+ayna.org/tombola` TAGMSG to the channel.
+- Stops and resets the game if player count drops below the minimum.
+
 #### Dependencies
 * node (https://nodejs.org/)
 * yarn (https://yarnpkg.com/)

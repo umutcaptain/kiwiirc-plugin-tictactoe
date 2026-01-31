@@ -1,0 +1,10 @@
+{
+  "name": "kiwiirc-tombola-bot",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/bot.js",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "irc-framework": "^4.12.0"
+  }
+}

@@ -42,7 +42,7 @@ kiwi.plugin('tombola', (kiwi) => {
 
         switch (data.cmd) {
         case 'card': {
-            if (Array.isArray(data.card)) {
+            if (Array.isArray(data.card) && (!data.nick || data.nick === network.nick)) {
                 game.setCard(data.card);
                 Utils.storeCard(network, target, network.nick, data.card);
                 game.setStatusMessage('Kartınız hazırlandı.');
@@ -61,6 +61,18 @@ kiwi.plugin('tombola', (kiwi) => {
         case 'reset': {
             game.clearDraws();
             game.setStatusMessage('Yeni oyun başlıyor.');
+            break;
+        }
+        case 'status': {
+            if (data.text) {
+                game.setStatusMessage(data.text);
+            }
+            break;
+        }
+        case 'winner': {
+            if (data.type && data.nick) {
+                game.setStatusMessage(`${data.type} kazananı: ${data.nick}`);
+            }
             break;
         }
         default: {
