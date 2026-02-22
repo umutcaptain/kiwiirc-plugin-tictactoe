@@ -1,82 +1,96 @@
-# Tombala Plugin for KiwiIRC
+# Tombala Plugin for KiwiIRC (Server-Authoritative)
 
-Bu plugin, KiwiIRC üzerinde kanal içinde Tombala oyunu akışını yönetmek için hazırlanmıştır.
+Bu plugin artık **server-authoritative** mimariyle çalışır:
 
-## Kurulum / Build
+- KiwiIRC plugin sadece UI gösterir ve kullanıcı komutlarını kanala yollar.
+- Oyun state'i, çekiliş ve doğrulama sadece **tek bir IRC botu** tarafından yapılır.
+- Böylece her kullanıcı client'ında paralel çekiliş çalışması problemi çözülür.
 
-### Gereksinimler
-- Node.js
-- Yarn
+## Mimari
 
-### Kurulum
+1. Kullanıcılar kanalda `!tombala ...` komutları gönderir.
+2. Tombala botu komutu işler ve state üretir.
+3. Bot kanala `!tombala-event <json>` yayınlar.
+4. Plugin sadece bu event'leri okuyup paneli günceller.
+
+## Build
+
 ```bash
 yarn
-```
-
-### Build
-```bash
 yarn build
 ```
 
-Build çıktısı:
+Çıktı: `dist/plugin-tombala.js`
 
-- `dist/plugin-tombala.js`
+## Plugin config.json
 
-## `config.json` örneği
-
-Aşağıdaki örnek, plugin'in hangi kanallarda çalışacağını (`allowlist`) ve çekiliş interval süresini (`interval`) gösterir.
+Repo kökündeki `config.json` örneği:
 
 ```json
 {
-  "plugins": [
-    {
-      "name": "tombala",
-      "src": "/static/plugins/plugin-tombala.js",
-      "config": {
-        "allowlist": ["#genel", "#oyun"],
-        "interval": 8
-      }
-    }
-  ]
+  "allowedChannels": ["#test", "#test1"],
+  "autoDrawIntervalMs": 30000,
+  "singleWinnerPerStage": true
 }
 ```
 
-- `allowlist`: Plugin komutlarının aktif olacağı kanal listesi.
-- `interval`: Sayı çekiliş turu arası saniye cinsinden bekleme süresi.
+- `allowedChannels`: plugin'in aktif olacağı kanallar
 
-## Komut tablosu
+## Bot kurulumu (authority)
 
-| Komut | Açıklama | Yetki |
-|---|---|---|
-| `!tombala baslat` | Kanalda yeni oyunu başlatır. | Operatör |
-| `!tombala katil` | Oyuncuyu aktif oyuna dahil eder ve kart dağıtır. | Tüm kullanıcılar |
-| `!tombala kartim` | Kullanıcının kartını özel mesaj veya uygun çıktı formatıyla gösterir. | Tüm kullanıcılar |
-| `!tombala cinko` | Çinko iddiası yapar, doğrulama yapılır. | Aktif oyuncu |
-| `!tombala tombala` | Tombala iddiası yapar, doğrulama yapılır. | Aktif oyuncu |
-| `!tombala durum` | Oyunun mevcut durumunu (çekilen sayı, kalan oyuncu vb.) listeler. | Tüm kullanıcılar |
-| `!tombala bitir` | Aktif oyunu zorla sonlandırır. | Operatör |
+Örnek bot dosyası: `bot/tombala-bot.js`
 
-## Kanal / operatör kısıtları
+> Not: Bot ayrı bir Node süreci olarak çalıştırılır.
 
-- Plugin sadece `allowlist` içinde tanımlanan kanallarda komut kabul eder.
-- `baslat` ve `bitir` komutları kanal operatör yetkisi gerektirir.
-- `cinko` ve `tombala` komutları yalnızca o turda kartı bulunan aktif oyuncular için geçerlidir.
-- Oyun dışı kanalda veya özel mesajda yapılan oyun komutları yok sayılır.
-
-## Örnek oyun akışı
-
-1. Operatör `!tombala baslat` komutunu girer.
-2. Oyuncular `!tombala katil` ile oyuna dahil olur.
-3. Sistem kartları üretir ve çekiliş turunu başlatır.
-4. Çekiliş ilerledikçe oyuncular kartlarını kontrol eder.
-5. Bir oyuncu satır tamamladığında `!tombala cinko` der; sistem doğrular ve sonucu anons eder.
-6. Tüm kart tamamlandığında oyuncu `!tombala tombala` der; doğrulama başarılıysa oyun biter.
-7. Gerekirse operatör `!tombala bitir` ile oyunu sonlandırır.
-
-## Geliştirme testleri
+Bot ortamında kurulum:
 
 ```bash
-yarn test
+npm i irc-framework seedrandom
+```
+
+Çalıştırma:
+
+```bash
+IRC_HOST=irc.example.net \
+IRC_PORT=6697 \
+IRC_TLS=true \
+IRC_NICK=TombalaBot \
+IRC_CHANNELS="#test,#test1" \
+TOMBALA_INTERVAL_MS=30000 \
+node bot/tombala-bot.js
+```
+
+## Komutlar
+
+- `!tombala yardim`
+- `!tombala baslat`
+- `!tombala katil`
+- `!tombala basla`
+- `!tombala cek`
+- `!tombala durum`
+- `!tombala kazan`
+- `!tombala bitir`
+- `!tombala seed <string>`
+
+## Event formatı
+
+Bot kanala şu formatta yayın yapar:
+
+```text
+!tombala-event {"type":"state", ...}
+```
+
+Kullanılan tipler:
+
+- `state`: genel durum (`status`, `drawnNumbers`, `winners`)
+- `draw`: tek çekiliş (`number`)
+- `card`: oyuncuya kart (`nick`, `card`)
+- `reset`: oyun temizleme
+
+## Test
+
+```bash
+node --test tests/tombala.test.js
 ```
 
 ## Lisans
