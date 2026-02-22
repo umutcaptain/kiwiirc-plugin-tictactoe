@@ -1,11 +1,11 @@
 <template>
-    <div id="tictactoe">
+    <div id="tombala">
         <div
             v-if="game.getShowInvite()"
             :style="{'margin-bottom': (game.getShowGame()? '6px' : '0')}"
             class="invite"
         >
-            <span class="invite_text">You have been invited to play Tic-Tac-Toe</span>
+            <span class="invite_text">You have been invited to play Tombala</span>
             <div class="invite_button invite_button_accept" @click="inviteClicked(true)">
                 Accept
             </div>
@@ -95,7 +95,7 @@ export default {
 </script>
 
 <style>
-#tictactoe {
+#tombala {
     position: relative;
     display: block;
     width: 100%;
@@ -103,7 +103,7 @@ export default {
     text-align: center;
 }
 
-#tictactoe .invite {
+#tombala .invite {
     display: inline-flex;
     margin: 0 auto;
     font-size: 1.1em;
@@ -111,12 +111,12 @@ export default {
     align-items: center;
 }
 
-#tictactoe .invite_text {
+#tombala .invite_text {
     float: left;
     margin-right: 5px;
 }
 
-#tictactoe .invite_button {
+#tombala .invite_button {
     float: left;
     cursor: pointer;
     margin: 0 5px;
@@ -126,15 +126,15 @@ export default {
     border-radius: 4px;
 }
 
-#tictactoe .invite_button_accept {
+#tombala .invite_button_accept {
     background-color: var(--brand-primary);
 }
 
-#tictactoe .invite_button_decline {
+#tombala .invite_button_decline {
     background-color: var(--brand-error);
 }
 
-#tictactoe table {
+#tombala table {
     margin: 0 auto;
     font-size: 5em;
     text-align: center;
@@ -142,22 +142,22 @@ export default {
     border-collapse: collapse;
 }
 
-#tictactoe .selectable {
+#tombala .selectable {
     cursor: pointer;
 }
 
-#tictactoe .winner {
+#tombala .winner {
     background-color: #6bff5e;
 }
 
-#tictactoe .message {
+#tombala .message {
     text-align: center;
     font-size: 1.4em;
     font-weight: bold;
     margin-top: 6px;
 }
 
-#tictactoe table td {
+#tombala table td {
     border: 6px solid black;
     width: 90px;
     height: 90px;
@@ -167,20 +167,20 @@ export default {
     user-select: none; /* Standard */
 }
 
-#tictactoe table tr:first-child td {
+#tombala table tr:first-child td {
     border-top: 0;
 }
 
-#tictactoe table tr:last-child td {
+#tombala table tr:last-child td {
     border-bottom: 0;
 }
 
-#tictactoe table tr td:first-child,
+#tombala table tr td:first-child,
 table tr th:first-child {
     border-left: 0;
 }
 
-#tictactoe table tr td:last-child,
+#tombala table tr td:last-child,
 table tr th:last-child {
     border-right: 0;
 }
