@@ -1,13 +1,67 @@
 import * as Utils from './libs/Utils.js';
+import TombalaGame from './libs/TombalaGame.js';
 import { parseTombalaCommand } from './libs/TombalaCommandParser.js';
 import TombalaManager from './libs/TombalaManager.js';
 import GameButton from './components/GameButton.vue';
 import GameComponent from './components/GameComponent.vue';
 import config from '../config.json';
 
+function getOrCreateTombalaGame(games, channelName, seed = channelName) {
+    if (!games.has(channelName)) {
+        let game = new TombalaGame(channelName);
+        game.setSeed(seed);
+        game.setStatus('registering');
+        games.set(channelName, game);
+    }
+    return games.get(channelName);
+}
+
+function sendChannelMessage(network, channelName, message) {
+    if (typeof network.ircClient.say === 'function') {
+        network.ircClient.say(channelName, message);
+        return;
+    }
+
+    let msg = new network.ircClient.Message('PRIVMSG', channelName, message);
+    msg.prefix = network.nick;
+    network.ircClient.raw(msg);
+}
+
 // eslint-disable-next-line no-undef
 kiwi.plugin('tombala', (kiwi) => {
     let mediaViewerOpen = false;
+    let tombalaGames = new Map();
+
+    kiwi.addUi('header_query', GameButton);
+
+    kiwi.on('irc.raw.PRIVMSG', (command, event, network) => {
+        if (!event.params || event.params.length < 2) {
+            return;
+        }
+
+        let channelName = event.params[0];
+        let text = (event.params[1] || '').trim();
+        if (!text.startsWith('!tombala')) {
+            return;
+        }
+
+        let parts = text.split(/\s+/);
+        let subcmd = (parts[1] || '').toLowerCase();
+
+        if (subcmd === 'kazan') {
+            let game = getOrCreateTombalaGame(tombalaGames, channelName, `${network.name}:${channelName}`);
+            game.registerPlayer(event.nick);
+
+            if (game.status === 'registering' || game.status === 'idle') {
+                game.setStatus('running');
+                for (let i = 0; i < 15; i++) {
+                    game.drawNumber();
+                }
+            }
+
+            let claimResult = game.verifyClaim(event.nick);
+            sendChannelMessage(network, channelName, claimResult.message);
+        }
     let configuredInterval = 30000;
 
     if (kiwi.config && kiwi.config.tombala && kiwi.config.tombala.intervalMs) {
