@@ -1,4 +1,6 @@
 import * as Utils from './libs/Utils.js';
+import { parseTombalaCommand } from './libs/TombalaCommandParser.js';
+import TombalaManager from './libs/TombalaManager.js';
 import GameButton from './components/GameButton.vue';
 import GameComponent from './components/GameComponent.vue';
 import config from '../config.json';
@@ -6,6 +8,13 @@ import config from '../config.json';
 // eslint-disable-next-line no-undef
 kiwi.plugin('tombala', (kiwi) => {
     let mediaViewerOpen = false;
+    let configuredInterval = 30000;
+
+    if (kiwi.config && kiwi.config.tombala && kiwi.config.tombala.intervalMs) {
+        configuredInterval = Number(kiwi.config.tombala.intervalMs) || configuredInterval;
+    }
+
+    const tombala = new TombalaManager({ drawIntervalMs: configuredInterval });
 
     const operatorModes = ['q', 'a', 'o'];
     const tombalaRestrictedCommands = new Set([
@@ -87,6 +96,37 @@ kiwi.plugin('tombala', (kiwi) => {
 
     kiwi.addUi('header_query', GameButton);
 
+    const sendTombalaReply = (network, channel, message) => {
+        if (!network || !channel || !message) {
+            return;
+        }
+        network.ircClient.raw('PRIVMSG', channel, message);
+    };
+
+    const onIncomingChat = (event, network) => {
+        if (!event || !event.message || !network) {
+            return;
+        }
+        const channel = event.target || (event.params && event.params[0]);
+        if (!channel || channel.charAt(0) !== '#') {
+            return;
+        }
+        const parsed = parseTombalaCommand(event.message);
+        if (!parsed) {
+            return;
+        }
+
+        tombala.handleCommand({
+            channel,
+            nick: event.nick,
+            command: parsed.cmd,
+            args: parsed.args,
+            reply: (message) => sendTombalaReply(network, channel, message),
+        });
+    };
+
+    kiwi.on('irc.privmsg', (event, network) => onIncomingChat(event, network));
+    kiwi.on('irc.message', (event, network) => onIncomingChat(event, network));
     kiwi.on('irc.raw.PRIVMSG', (command, event, network) => {
         const target = event?.params?.[0];
         const message = event?.params?.[1];
