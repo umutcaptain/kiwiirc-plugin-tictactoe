@@ -56,7 +56,7 @@ export default {
                 let buffer = kiwi.state.getActiveBuffer();
                 let game = Utils.getGame(buffer.name);
                 box.val = game.getMarker();
-                Utils.sendData(buffer.getNetwork(), game.getRemotePlayer(), {
+                Utils.sendData(buffer.getNetwork(), buffer.name, {
                     cmd: 'action', clicked: box.id, turn: game.getGameTurn(),
                 });
                 game.incrementGameTurn();
@@ -69,21 +69,23 @@ export default {
         inviteClicked(accepted) {
             /* eslint-disable no-undef */
             let network = kiwi.state.getActiveNetwork();
-            let remotePlayer = kiwi.state.getActiveBuffer().name;
+            let channelName = kiwi.state.getActiveBuffer().name;
             /* eslint-enable no-undef */
 
-            let game = Utils.getGame(remotePlayer);
+            let game = Utils.getGame(channelName);
             game.setShowInvite(false);
             game.setInviteSent(false);
             if (accepted) {
-                let startPlayer = Math.floor(Math.random() * 2) === 0 ? network.nick : remotePlayer;
+                let startPlayer = Math.floor(Math.random() * 2) === 0
+                    ? network.nick
+                    : game.getRemotePlayer();
                 game.startGame(startPlayer);
                 game.setTurnMessage();
-                Utils.sendData(network, remotePlayer, {
+                Utils.sendData(network, channelName, {
                     cmd: 'invite_accepted', startPlayer: startPlayer,
                 });
             } else {
-                Utils.sendData(network, remotePlayer, { cmd: 'invite_declined' });
+                Utils.sendData(network, channelName, { cmd: 'invite_declined' });
                 // eslint-disable-next-line no-undef
                 kiwi.emit('mediaviewer.hide');
             }
