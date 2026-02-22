@@ -60,6 +60,61 @@ function recomputeMarks(state) {
     state.markedNumbers = state.card
         .flat()
         .filter((n) => n !== null && state.drawnNumbers.indexOf(n) !== -1);
+
+function defaultState() {
+    return {
+        status: 'idle',
+        hasCard: false,
+        card: Array.from({ length: 3 }, () => Array(9).fill(null)),
+        markedNumbers: [],
+        drawnNumbers: [],
+        winners: {
+            cinko1: [],
+            cinko2: [],
+            tombala: [],
+        },
+    };
+}
+
+function applyEventToState(state, event, localNick) {
+    var next = Object.assign({}, state);
+
+    if (event.type === 'state') {
+        next.status = event.status || next.status;
+        next.drawnNumbers = Array.isArray(event.drawnNumbers) ? event.drawnNumbers : next.drawnNumbers;
+        next.winners = event.winners || next.winners;
+        return next;
+    }
+
+    if (event.type === 'draw') {
+        if (typeof event.number === 'number' && next.drawnNumbers.indexOf(event.number) === -1) {
+            next.drawnNumbers = next.drawnNumbers.concat([event.number]);
+        }
+        return next;
+    }
+
+    if (event.type === 'card' && event.nick && localNick && event.nick.toLowerCase() === localNick.toLowerCase()) {
+        next.hasCard = true;
+        next.card = Array.isArray(event.card) ? event.card : next.card;
+        return next;
+    }
+
+    if (event.type === 'reset') {
+        return defaultState();
+    }
+
+    return next;
+}
+
+function recomputeMarks(state) {
+    if (!state.hasCard) {
+        state.markedNumbers = [];
+        return;
+    }
+
+    state.markedNumbers = state.card
+        .flat()
+        .filter((n) => n !== null && state.drawnNumbers.indexOf(n) !== -1);
 }
 
 function say(network, target, text) {
@@ -354,6 +409,9 @@ function say(network, target, text) {
 
 // eslint-disable-next-line no-undef
 kiwi.plugin('tombala', function (kiwi) {
+
+// eslint-disable-next-line no-undef
+kiwi.plugin('tombala', function (kiwi) {
     var manager = new TombalaManager({
         drawIntervalMs: config.autoDrawIntervalMs,
         singleWinnerPerStage: config.singleWinnerPerStage,
@@ -458,6 +516,18 @@ kiwi.plugin('tombala', function (kiwi) {
     function updateUi(channel) {
         kiwi.emit('plugin-tombala.update-ui', { channel: channel });
     }
+
+    kiwi.on('plugin-tombala.join', function (payload) {
+        var buffer = payload && payload.buffer;
+        var network = payload && payload.network;
+
+        if (!buffer || !network || !isChannelName(buffer.name)) {
+            return;
+        }
+        if (config.allowedChannels.indexOf(buffer.name) === -1) {
+            return;
+        }
+
 
     kiwi.on('plugin-tombala.join', function (payload) {
         var buffer = payload && payload.buffer;
@@ -648,6 +718,48 @@ kiwi.plugin('tombala', (kiwi) => {
         var message = params[1];
 
         if (!isChannelName(target) || typeof message !== 'string') {
+            return;
+        }
+        if (config.allowedChannels.indexOf(target) === -1) {
+            return;
+        }
+
+        if (message.indexOf('!tombala-event ') !== 0) {
+            return;
+        }
+
+        var jsonPayload = message.substring('!tombala-event '.length);
+        var eventData = null;
+
+        try {
+            eventData = JSON.parse(jsonPayload);
+        } catch (err) {
+            return;
+        }
+
+        var state = uiStore.get(target) || defaultState();
+        var localNick = network ? network.nick : null;
+        var nextState = applyEventToState(state, eventData, localNick);
+        recomputeMarks(nextState);
+        uiStore.set(target, nextState);
+        updateUi(target);
+    });
+
+    kiwi.state.$watch('ui.active_buffer', function () {
+        var buffer = kiwi.state.getActiveBuffer();
+        if (!buffer || !isChannelName(buffer.name)) {
+            return;
+        }
+
+        if (config.allowedChannels.indexOf(buffer.name) === -1) {
+            return;
+        }
+
+        if (!uiStore.has(buffer.name)) {
+            uiStore.set(buffer.name, defaultState());
+        }
+
+        updateUi(buffer.name);
             return;
         }
         if (config.allowedChannels.indexOf(target) === -1) {

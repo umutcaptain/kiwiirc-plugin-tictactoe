@@ -52,6 +52,8 @@ npm i irc-framework seedrandom
 
 ```bash
 IRC_HOST=irc.example.net \
+IRC_PORT=6697 \
+IRC_TLS=true \
 IRC_PORT=6667 \
 IRC_NICK=TombalaBot \
 IRC_CHANNELS="#test,#test1" \

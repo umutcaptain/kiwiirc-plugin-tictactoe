@@ -8,6 +8,7 @@
  *   npm i irc-framework seedrandom
  *
  * Env:
+ *   IRC_HOST, IRC_PORT, IRC_TLS, IRC_NICK, IRC_USERNAME, IRC_REALNAME, IRC_PASS(optional)
  *   IRC_HOST, IRC_PORT, IRC_NICK, IRC_USERNAME, IRC_REALNAME, IRC_PASS(optional)
  *   IRC_CHANNELS="#test,#test1"
  *   TOMBALA_INTERVAL_MS=30000
@@ -103,6 +104,8 @@ function isOp(event) {
 const client = new IRC.Client();
 client.connect({
     host: process.env.IRC_HOST,
+    port: Number(process.env.IRC_PORT || 6697),
+    tls: String(process.env.IRC_TLS || 'true').toLowerCase() !== 'false',
     port: Number(process.env.IRC_PORT || 6667),
     nick: process.env.IRC_NICK || 'TombalaBot',
     username: process.env.IRC_USERNAME || 'tombala',
