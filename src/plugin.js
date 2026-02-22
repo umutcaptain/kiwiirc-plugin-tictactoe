@@ -33,6 +33,15 @@ function getUserFromBuffer(buffer, nick) {
 
 function findUserModes(buffer, nick) {
     const user = getUserFromBuffer(buffer, nick);
+
+function findUserModes(buffer, nick) {
+    if (!buffer) {
+        return [];
+    }
+
+    const users = buffer.users || (typeof buffer.getUsers === 'function' ? buffer.getUsers() : null);
+    const user = users && typeof users.get === 'function' ? users.get(nick) : (users ? users[nick] : null);
+
     if (!user) {
         return [];
     }
@@ -60,6 +69,9 @@ function hasKnownUserModes(buffer, nick) {
     return !!getUserFromBuffer(buffer, nick);
 }
 
+    return [];
+}
+
 function isOperator(buffer, nick) {
     const modes = findUserModes(buffer, nick);
     return ['q', 'a', 'o'].some((mode) => modes.includes(mode));
@@ -79,6 +91,7 @@ kiwi.plugin('tombala', (kiwi) => {
     kiwi.addUi('header_channel', TombalaButton);
 
     function refreshUi(channel, network) {
+        const buffer = kiwi.state.getActiveBuffer();
         const nick = network ? network.nick : (kiwi.state.getActiveNetwork() || {}).nick;
         if (!channel || !nick) {
             kiwi.emit('plugin-tombala.update-ui');
@@ -86,6 +99,9 @@ kiwi.plugin('tombala', (kiwi) => {
         }
 
         uiStore.set(channel, manager.getUiState(channel, nick));
+        if (buffer && isChannelName(buffer.name) && buffer.name !== channel) {
+            uiStore.set(buffer.name, manager.getUiState(buffer.name, nick));
+        }
         kiwi.emit('plugin-tombala.update-ui');
     }
 
@@ -153,6 +169,50 @@ kiwi.plugin('tombala', (kiwi) => {
             announceDraw: (n) => say(network, target, `🎱 Çekilen sayı: ${n}`),
         });
 
+    kiwi.on('plugin-tombala.join', ({ buffer, network }) => {
+        if (!buffer || !network || !isChannelName(buffer.name)) {
+            return;
+        }
+
+        if (!config.allowedChannels.includes(buffer.name)) {
+            return;
+        }
+
+        manager.handleMessage({
+            channel: buffer.name,
+            nick: network.nick,
+            message: '!tombala katil',
+            isOperator: isOperator(buffer, network.nick),
+            reply: (text) => say(network, buffer.name, text),
+            announceDraw: (n) => say(network, buffer.name, `🎱 Çekilen sayı: ${n}`),
+        });
+
+        refreshUi(buffer.name, network);
+        kiwi.emit('mediaviewer.show', { component: TombalaPanel });
+    });
+
+    kiwi.on('irc.raw.PRIVMSG', (command, event, network) => {
+        const target = event && event.params ? event.params[0] : null;
+        const message = event && event.params ? event.params[1] : null;
+
+        if (!isChannelName(target) || typeof message !== 'string') {
+            return;
+        }
+
+        if (!config.allowedChannels.includes(target)) {
+            return;
+        }
+
+        const buffer = kiwi.state.getBufferByName(network.id, target);
+        const handled = manager.handleMessage({
+            channel: target,
+            nick: event.nick,
+            message,
+            isOperator: isOperator(buffer, event.nick),
+            reply: (text) => say(network, target, text),
+            announceDraw: (n) => say(network, target, `🎱 Çekilen sayı: ${n}`),
+        });
+
         if (handled) {
             refreshUi(target, network);
         }
@@ -170,5 +230,6 @@ kiwi.plugin('tombala', (kiwi) => {
         }
 
         refreshUi(buffer.name, network);
+        kiwi.emit('mediaviewer.show', { component: TombalaPanel });
     });
 });
