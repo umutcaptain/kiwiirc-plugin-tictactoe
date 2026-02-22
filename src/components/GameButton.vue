@@ -24,6 +24,10 @@ export default {
             let network = kiwi.state.getActiveNetwork();
             /* eslint-enable no-undef */
 
+            if (!buffer.isChannel || !buffer.isChannel()) {
+                return false;
+            }
+
             // Don't show the button if they have a chat to them self
             if (network.nick === buffer.name) {
                 return false;
@@ -56,7 +60,7 @@ export default {
             let buffer = kiwi.state.getActiveBuffer();
             let network = buffer.getNetwork();
 
-            if (buffer.name === network.nick) {
+            if (!buffer.isChannel || !buffer.isChannel() || buffer.name === network.nick) {
                 return;
             }
 
