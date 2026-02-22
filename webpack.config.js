@@ -7,7 +7,7 @@ module.exports = {
     mode: 'production',
     entry: './src/plugin.js',
     output: {
-        filename: 'plugin-tictactoe.js',
+        filename: 'plugin-tombala.js',
     },
     module: {
         rules: [

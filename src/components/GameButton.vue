@@ -1,6 +1,6 @@
 <template>
     <div><div v-if="showButton" @click="buttonClicked">
-        <a>Play Tic Tac Toe</a>
+        <a>Play Tombala</a>
     </div></div>
 </template>
 
@@ -43,7 +43,7 @@ export default {
         },
     },
     mounted() {
-        this.listen(kiwi, 'plugin-tictactoe.update-button', () => {
+        this.listen(kiwi, 'plugin-tombala.update-button', () => {
             this.forceUpdateUI();
         });
     },
@@ -81,7 +81,7 @@ export default {
                     kiwi.state.addMessage(buffer, {
                         nick: '*',
                         message: 'The invite to ' + buffer.name +
-                            ' has timed out :( maybe they don\'t have the Tic-Tac-Toe plugin?',
+                            ' has timed out :( maybe they don\'t have the Tombala plugin?',
                         type: 'message',
                     });
                 }, 4000));
@@ -91,7 +91,7 @@ export default {
             // eslint-disable-next-line no-undef
             kiwi.state.addMessage(buffer, {
                 nick: '*',
-                message: buffer.name + ' has been invited to play Tic-Tac-Toe!',
+                message: buffer.name + ' has been invited to play Tombala!',
                 type: 'message',
             });
         },
