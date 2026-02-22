@@ -1,167 +1,159 @@
-import { getTombalaHelpText } from './TombalaCommandParser.js';
+import TombalaGame from './TombalaGame.js';
+import { parseTombalaCommand, getTombalaHelpText } from './TombalaCommandParser.js';
+import { autoMarkCard } from './tombala/win-check.js';
 
 const DEFAULT_INTERVAL_MS = 30000;
-const MAX_NUMBER = 90;
-
-function hashSeed(value) {
-    let hash = 0;
-    for (let i = 0; i < value.length; i += 1) {
-        hash = (hash * 31 + value.charCodeAt(i)) % 2147483647;
-    }
-    return hash || 1;
-}
-
-function createSeededRng(seed) {
-    let state = hashSeed(seed) || 1;
-    return () => {
-        state = (state * 1664525 + 1013904223) % 4294967296;
-        return state / 4294967296;
-    };
-}
-
-function createState() {
-    return {
-        started: false,
-        players: new Set(),
-        draws: [],
-        winnerStages: [],
-        timerId: null,
-        seed: null,
-        rng: Math.random,
-    };
-}
 
 export default class TombalaManager {
-    constructor(config = {}) {
+    constructor(options = {}) {
         this.games = new Map();
-        this.drawIntervalMs = Number(config.drawIntervalMs) || DEFAULT_INTERVAL_MS;
+        this.intervalMs = Number(options.drawIntervalMs) || DEFAULT_INTERVAL_MS;
+        this.singleWinnerPerStage = options.singleWinnerPerStage !== false;
     }
 
     getOrCreate(channel) {
         if (!this.games.has(channel)) {
-            this.games.set(channel, createState());
+            this.games.set(channel, new TombalaGame(channel, channel));
         }
         return this.games.get(channel);
     }
 
-    clearTimer(state) {
-        if (state.timerId) {
-            window.clearInterval(state.timerId);
-            state.timerId = null;
+    stopTimer(game) {
+        if (game && game.timerId) {
+            clearInterval(game.timerId);
+            game.timerId = null;
         }
     }
 
-    endGame(channel, reason, reply) {
-        const state = this.getOrCreate(channel);
-        this.clearTimer(state);
-        state.started = false;
-        if (reason) {
-            reply(reason);
-        }
+    endGame(channel) {
+        const game = this.getOrCreate(channel);
+        this.stopTimer(game);
+        game.status = 'finished';
     }
 
-    drawNumber(channel) {
-        const state = this.getOrCreate(channel);
-        if (!state.started) {
-            return null;
-        }
+    getUiState(channel, nick) {
+        const game = this.getOrCreate(channel);
+        const player = game.getPlayer(nick);
+        const card = player ? player.card : Array.from({ length: 3 }, () => Array(9).fill(null));
 
-        if (state.draws.length >= MAX_NUMBER) {
-            return null;
-        }
-
-        const available = [];
-        for (let i = 1; i <= MAX_NUMBER; i += 1) {
-            if (!state.draws.includes(i)) {
-                available.push(i);
-            }
-        }
-
-        const index = Math.floor(state.rng() * available.length);
-        const drawn = available[index];
-        state.draws.push(drawn);
-        if (state.draws.length >= MAX_NUMBER) {
-            this.endGame(channel, 'Tüm sayılar çekildi, oyun bitti.', () => {});
-        }
-        return drawn;
+        return {
+            status: game.status,
+            hasCard: !!player,
+            card,
+            markedNumbers: player ? card.flat().filter((n) => n !== null && game.drawnNumbers.includes(n)) : [],
+            marks: player ? autoMarkCard(card, game.drawnNumbers) : [],
+            drawnNumbers: [...game.drawnNumbers],
+            winners: {
+                cinko1: game.winners.cinko1 ? [game.winners.cinko1] : [],
+                cinko2: game.winners.cinko2 ? [game.winners.cinko2] : [],
+                tombala: game.winners.tombala ? [game.winners.tombala] : [],
+            },
+        };
     }
 
-    getStatusText(channel) {
-        const state = this.getOrCreate(channel);
-        const lastDraw = state.draws.length ? state.draws[state.draws.length - 1] : '-';
-        const stageWinners = state.winnerStages.length ? state.winnerStages.join(', ') : '-';
+    handleMessage({ channel, nick, message, isOperator, reply, announceDraw }) {
+        const parsed = parseTombalaCommand(message);
+        if (!parsed) {
+            return false;
+        }
 
-        return `Durum | oyuncu sayısı: ${state.players.size}, çekilen sayı adedi: ${state.draws.length}, son çekilen sayı: ${lastDraw}, stage kazananları: ${stageWinners}`;
-    }
+        const game = this.getOrCreate(channel);
+        const restricted = new Set(['baslat', 'basla', 'bitir', 'seed']);
+        if (restricted.has(parsed.cmd) && !isOperator) {
+            reply('Bu komut sadece kanal operatörleri tarafından kullanılabilir.');
+            return true;
+        }
 
-    handleCommand({ channel, nick, command, args, reply }) {
-        const state = this.getOrCreate(channel);
-
-        switch (command) {
+        switch (parsed.cmd) {
         case 'yardim':
             reply(getTombalaHelpText());
             break;
         case 'baslat':
-            this.clearTimer(state);
-            this.games.set(channel, createState());
-            this.getOrCreate(channel).players.add(nick);
-            reply('Tombala oyunu oluşturuldu. Katılmak için: !tombala katil');
+            this.stopTimer(game);
+            this.games.set(channel, new TombalaGame(channel, channel));
+            this.getOrCreate(channel).status = 'registering';
+            reply('Tombala oturumu açıldı. Katılmak için: !tombala katil');
             break;
-        case 'katil':
-            state.players.add(nick);
-            reply(`${nick} oyuna katıldı. Toplam oyuncu: ${state.players.size}`);
+        case 'katil': {
+            const activeGame = this.getOrCreate(channel);
+            if (activeGame.status === 'idle' || activeGame.status === 'finished') {
+                reply('Önce operatör !tombala baslat ile oyunu açmalı.');
+                break;
+            }
+            activeGame.registerPlayer(nick);
+            reply(`${nick} oyuna katıldı. Toplam oyuncu: ${activeGame.players.size}`);
             break;
+        }
         case 'seed': {
-            const seedValue = args[0];
-            if (!seedValue) {
+            const seed = parsed.args.join(' ').trim();
+            if (!seed) {
                 reply('Kullanım: !tombala seed <string>');
                 break;
             }
-            state.seed = seedValue;
-            state.rng = createSeededRng(seedValue);
-            reply(`Seed ayarlandı: ${seedValue}`);
+            game.setSeed(seed);
+            reply(`Seed ayarlandı: ${seed}`);
             break;
         }
         case 'basla':
-            if (!state.players.size) {
-                reply('Oyunu başlatmak için en az bir oyuncu katılmalı.');
+            if (game.status !== 'registering') {
+                reply('Önce !tombala baslat ile kayıt açılmalı.');
                 break;
             }
-            state.started = true;
-            if (!state.timerId) {
-                state.timerId = window.setInterval(() => {
-                    const drawn = this.drawNumber(channel);
+            if (!game.players.size) {
+                reply('Başlatmak için en az bir oyuncu katılmalı (!tombala katil).');
+                break;
+            }
+            game.status = 'running';
+            if (!game.timerId) {
+                game.timerId = setInterval(() => {
+                    const drawn = game.drawNumber();
                     if (drawn === null) {
-                        this.clearTimer(state);
+                        this.endGame(channel);
+                        reply('Tüm sayılar çekildi. Oyun bitti.');
                         return;
                     }
-                    reply(`Sayı çekildi: ${drawn}`);
-                }, this.drawIntervalMs);
+                    announceDraw(drawn);
+                }, this.intervalMs);
             }
-            reply(`Oyun başladı. Otomatik çekiliş her ${this.drawIntervalMs}ms.`);
+            reply(`Oyun başladı. Otomatik çekiliş: ${this.intervalMs}ms`);
             break;
         case 'cek': {
-            const drawn = this.drawNumber(channel);
-            if (drawn === null) {
-                reply('Çekiliş yapılamadı. Oyun başlamamış olabilir veya sayılar bitmiş olabilir.');
+            if (game.status !== 'running') {
+                reply('Çekiliş için oyun running durumunda olmalı.');
                 break;
             }
-            reply(`Sayı çekildi: ${drawn}`);
+            const drawn = game.drawNumber();
+            if (drawn === null) {
+                this.endGame(channel);
+                reply('Tüm sayılar çekildi. Oyun bitti.');
+                break;
+            }
+            announceDraw(drawn);
             break;
         }
         case 'durum':
-            reply(this.getStatusText(channel));
+            reply(`Durum: ${game.status} | Oyuncu: ${game.players.size} | Çekilen: ${game.drawnNumbers.length} | Son: ${game.lastDrawn || '-'}`);
             break;
-        case 'kazan':
-            state.winnerStages.push(nick);
-            reply(`${nick} bir stage kazandı!`);
+        case 'kazan': {
+            if (game.status !== 'running' && game.status !== 'finished') {
+                reply('Henüz başlatılmış bir oyun yok.');
+                break;
+            }
+            const result = game.verifyClaim(nick, this.singleWinnerPerStage);
+            reply(result.message);
+            if (result.ok && result.stage === 'tombala') {
+                this.endGame(channel);
+            }
             break;
+        }
         case 'bitir':
-            this.endGame(channel, 'Oyun sonlandırıldı.', reply);
+            this.endGame(channel);
+            reply('Oyun sonlandırıldı ve temizlendi.');
             break;
         default:
             reply(getTombalaHelpText());
-            break;
         }
+
+        return true;
     }
 }
