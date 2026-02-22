@@ -17,8 +17,13 @@ export default {
         showButton() {
             // eslint-disable-next-line no-unused-expressions
             this.refreshCount;
-            let buffer = kiwi.state.getActiveBuffer();
-            return buffer && buffer.isChannel();
+            const buffer = kiwi.state.getActiveBuffer();
+            if (!buffer || !buffer.isChannel()) {
+                return false;
+            }
+
+            const allowed = kiwi.state.$tombalaAllowed || [];
+            return allowed.includes(buffer.name);
         },
     },
     mounted() {
@@ -28,7 +33,7 @@ export default {
     },
     methods: {
         joinGame() {
-            let buffer = kiwi.state.getActiveBuffer();
+            const buffer = kiwi.state.getActiveBuffer();
             if (!buffer || !buffer.isChannel()) {
                 return;
             }
