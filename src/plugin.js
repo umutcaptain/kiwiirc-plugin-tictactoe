@@ -1,12 +1,128 @@
 import * as Utils from './libs/Utils.js';
 import GameButton from './components/GameButton.vue';
 import GameComponent from './components/GameComponent.vue';
+import config from '../config.json';
 
 // eslint-disable-next-line no-undef
 kiwi.plugin('tictactoe', (kiwi) => {
     let mediaViewerOpen = false;
 
+    const operatorModes = ['q', 'a', 'o'];
+    const tombalaRestrictedCommands = new Set([
+        '!tombala baslat',
+        '!tombala basla',
+        '!tombala seed',
+        '!tombala bitir',
+    ]);
+
+    function isChannelName(name) {
+        return typeof name === 'string' && ['#', '&', '+', '!'].includes(name.charAt(0));
+    }
+
+    function isAllowedChannel(channelName) {
+        return config.allowedChannels.includes(channelName);
+    }
+
+    function findModeCollectionForUser(buffer, nick) {
+        if (!buffer) {
+            return [];
+        }
+
+        const users = buffer.users || (typeof buffer.getUsers === 'function' ? buffer.getUsers() : []);
+        const userFromCollection = (typeof users.get === 'function') ? users.get(nick) : users[nick];
+        const user = userFromCollection || (typeof buffer.getUser === 'function' ? buffer.getUser(nick) : null);
+
+        if (!user) {
+            return [];
+        }
+
+        if (Array.isArray(user.modes)) {
+            return user.modes;
+        }
+
+        if (typeof user.modes === 'string') {
+            return user.modes.split('');
+        }
+
+        if (Array.isArray(user.mode)) {
+            return user.mode;
+        }
+
+        if (typeof user.mode === 'string') {
+            return user.mode.split('');
+        }
+
+        if (Array.isArray(user.channels?.[buffer.name]?.modes)) {
+            return user.channels[buffer.name].modes;
+        }
+
+        return [];
+    }
+
+    function hasChannelOperatorStatus(buffer, nick) {
+        const modeCollection = findModeCollectionForUser(buffer, nick);
+        return operatorModes.some((mode) => modeCollection.includes(mode));
+    }
+
+    function sendChannelNotice(network, channelName, message) {
+        if (!network || !network.ircClient || !isChannelName(channelName)) {
+            return;
+        }
+
+        network.ircClient.say(channelName, message);
+    }
+
+    function parseTombalaCommand(text) {
+        if (typeof text !== 'string') {
+            return null;
+        }
+
+        const normalized = text.trim().replace(/\s+/g, ' ').toLowerCase();
+        if (!normalized.startsWith('!tombala')) {
+            return null;
+        }
+
+        return normalized;
+    }
+
     kiwi.addUi('header_query', GameButton);
+
+    kiwi.on('irc.raw.PRIVMSG', (command, event, network) => {
+        const target = event?.params?.[0];
+        const message = event?.params?.[1];
+        const commandText = parseTombalaCommand(message);
+
+        if (!commandText || !target || !isChannelName(target)) {
+            return;
+        }
+
+        if (!isAllowedChannel(target)) {
+            return;
+        }
+
+        if (!tombalaRestrictedCommands.has(commandText)) {
+            return;
+        }
+
+        const buffer = kiwi.state.getBufferByName(network.id, target);
+        if (!hasChannelOperatorStatus(buffer, event.nick)) {
+            sendChannelNotice(
+                network,
+                target,
+                event.nick + ': Bu komut sadece kanal operatörleri tarafından kullanılabilir (q/a/o).'
+            );
+            return;
+        }
+
+        kiwi.emit('plugin-tictactoe.tombala-command', {
+            command: commandText,
+            channel: target,
+            nick: event.nick,
+            network,
+            autoDrawIntervalMs: config.autoDrawIntervalMs,
+            singleWinnerPerStage: config.singleWinnerPerStage,
+        });
+    });
 
     // Listen to incoming messages
     kiwi.on('irc.raw.TAGMSG', (command, event, network) => {
