@@ -1,12 +1,53 @@
 import * as Utils from './libs/Utils.js';
+import { parseTombalaCommand } from './libs/TombalaCommandParser.js';
+import TombalaManager from './libs/TombalaManager.js';
 import GameButton from './components/GameButton.vue';
 import GameComponent from './components/GameComponent.vue';
 
 // eslint-disable-next-line no-undef
 kiwi.plugin('tictactoe', (kiwi) => {
     let mediaViewerOpen = false;
+    let configuredInterval = 30000;
+
+    if (kiwi.config && kiwi.config.tombala && kiwi.config.tombala.intervalMs) {
+        configuredInterval = Number(kiwi.config.tombala.intervalMs) || configuredInterval;
+    }
+
+    const tombala = new TombalaManager({ drawIntervalMs: configuredInterval });
 
     kiwi.addUi('header_query', GameButton);
+
+    const sendTombalaReply = (network, channel, message) => {
+        if (!network || !channel || !message) {
+            return;
+        }
+        network.ircClient.raw('PRIVMSG', channel, message);
+    };
+
+    const onIncomingChat = (event, network) => {
+        if (!event || !event.message || !network) {
+            return;
+        }
+        const channel = event.target || (event.params && event.params[0]);
+        if (!channel || channel.charAt(0) !== '#') {
+            return;
+        }
+        const parsed = parseTombalaCommand(event.message);
+        if (!parsed) {
+            return;
+        }
+
+        tombala.handleCommand({
+            channel,
+            nick: event.nick,
+            command: parsed.cmd,
+            args: parsed.args,
+            reply: (message) => sendTombalaReply(network, channel, message),
+        });
+    };
+
+    kiwi.on('irc.privmsg', (event, network) => onIncomingChat(event, network));
+    kiwi.on('irc.message', (event, network) => onIncomingChat(event, network));
 
     // Listen to incoming messages
     kiwi.on('irc.raw.TAGMSG', (command, event, network) => {
