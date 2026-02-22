@@ -33,11 +33,13 @@ export default class TombalaManager {
 
     getUiState(channel, nick) {
         const game = this.getOrCreate(channel);
+        const player = game.getPlayer(nick);
         const player = game.players.get(nick);
         const card = player ? player.card : Array.from({ length: 3 }, () => Array(9).fill(null));
 
         return {
             status: game.status,
+            hasCard: !!player,
             card,
             markedNumbers: player ? card.flat().filter((n) => n !== null && game.drawnNumbers.includes(n)) : [],
             marks: player ? autoMarkCard(card, game.drawnNumbers) : [],

@@ -6,6 +6,10 @@ function buildPool() {
     return Array.from({ length: 90 }, (_, idx) => idx + 1);
 }
 
+function keyForNick(nick) {
+    return String(nick || '').toLowerCase();
+}
+
 export default class TombalaGame {
     constructor(channelName, seed = '') {
         this.channelName = channelName;
@@ -34,14 +38,19 @@ export default class TombalaGame {
     }
 
     registerPlayer(nick) {
-        if (!this.players.has(nick)) {
-            this.players.set(nick, {
+        const key = keyForNick(nick);
+        if (!this.players.has(key)) {
+            this.players.set(key, {
                 nick,
                 card: generateCard(this.rng),
                 claims: { cinko1: false, cinko2: false, tombala: false },
             });
         }
-        return this.players.get(nick);
+        return this.players.get(key);
+    }
+
+    getPlayer(nick) {
+        return this.players.get(keyForNick(nick)) || null;
     }
 
     drawNumber() {
@@ -56,6 +65,7 @@ export default class TombalaGame {
     }
 
     verifyClaim(nick, singleWinnerPerStage = true) {
+        const player = this.getPlayer(nick);
         const player = this.players.get(nick);
         if (!player) {
             return { ok: false, message: `${nick} oyuna kayıtlı değil.` };
