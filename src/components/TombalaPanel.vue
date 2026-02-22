@@ -38,6 +38,18 @@
 <script>
 /* global kiwi:true */
 
+const EMPTY_STATE = {
+    status: 'idle',
+    card: Array.from({ length: 3 }, () => Array(9).fill(null)),
+    markedNumbers: [],
+    drawnNumbers: [],
+    winners: {
+        cinko1: [],
+        cinko2: [],
+        tombala: [],
+    },
+};
+
 export default {
     data() {
         return {
@@ -48,8 +60,11 @@ export default {
         state() {
             // eslint-disable-next-line no-unused-expressions
             this.forceRefresh;
-            let buffer = kiwi.state.getActiveBuffer();
-            return kiwi.state.$tombala.get(buffer.name);
+            const buffer = kiwi.state.getActiveBuffer();
+            if (!buffer || !kiwi.state.$tombala) {
+                return EMPTY_STATE;
+            }
+            return kiwi.state.$tombala.get(buffer.name) || EMPTY_STATE;
         },
         lastDrawnNumber() {
             return this.state.drawnNumbers[this.state.drawnNumbers.length - 1];
@@ -62,7 +77,7 @@ export default {
     },
     methods: {
         isMarked(number) {
-            return this.state.markedNumbers.includes(number);
+            return !!number && this.state.markedNumbers.includes(number);
         },
         winnerText(winners) {
             return winners && winners.length ? winners.join(', ') : '-';
