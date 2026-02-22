@@ -4,7 +4,7 @@ import GameComponent from './components/GameComponent.vue';
 import config from '../config.json';
 
 // eslint-disable-next-line no-undef
-kiwi.plugin('tictactoe', (kiwi) => {
+kiwi.plugin('tombala', (kiwi) => {
     let mediaViewerOpen = false;
 
     const operatorModes = ['q', 'a', 'o'];
@@ -128,12 +128,12 @@ kiwi.plugin('tictactoe', (kiwi) => {
     kiwi.on('irc.raw.TAGMSG', (command, event, network) => {
         if (event.params[0] !== network.nick ||
             event.nick === network.nick ||
-            !event.tags['+kiwiirc.com/ttt'] ||
-            event.tags['+kiwiirc.com/ttt'].charAt(0) !== '{'
+            !event.tags['+kiwiirc.com/tombala'] ||
+            event.tags['+kiwiirc.com/tombala'].charAt(0) !== '{'
         ) {
             return;
         }
-        let data = JSON.parse(event.tags['+kiwiirc.com/ttt']);
+        let data = JSON.parse(event.tags['+kiwiirc.com/tombala']);
 
         let buffer = kiwi.state.getOrAddBufferByName(network.id, event.nick);
         let game = Utils.getGame(event.nick);
@@ -145,10 +145,10 @@ kiwi.plugin('tictactoe', (kiwi) => {
             }
             game = Utils.getGame(event.nick);
             game.setShowInvite(true);
-            kiwi.emit('plugin-tictactoe.update-button');
+            kiwi.emit('plugin-tombala.update-button');
             kiwi.state.addMessage(buffer, {
                 nick: '*',
-                message: 'You have been invited to play Tic-Tac-Toe!',
+                message: 'You have been invited to play Tombala!',
                 type: 'message',
             });
             Utils.sendData(network, event.nick, { cmd: 'invite_received' });
@@ -168,7 +168,7 @@ kiwi.plugin('tictactoe', (kiwi) => {
         case 'invite_accepted': {
             kiwi.state.addMessage(buffer, {
                 nick: '*',
-                message: event.nick + ' accepted your invite to play Tic-Tac-Toe!',
+                message: event.nick + ' accepted your invite to play Tombala!',
                 type: 'message',
             });
             game.startGame(data.startPlayer);
@@ -182,7 +182,7 @@ kiwi.plugin('tictactoe', (kiwi) => {
         case 'invite_declined': {
             kiwi.state.addMessage(buffer, {
                 nick: '*',
-                message: event.nick + ' declined your invite to play Tic-Tac-Toe!',
+                message: event.nick + ' declined your invite to play Tombala!',
                 type: 'message',
             });
             game.setInviteSent(false);
@@ -219,14 +219,14 @@ kiwi.plugin('tictactoe', (kiwi) => {
             game.setGameMessage('Game ended by ' + event.nick);
             kiwi.state.addMessage(buffer, {
                 nick: '*',
-                message: event.nick + ' ended the game of Tic-Tac-Toe!',
+                message: event.nick + ' ended the game of Tombala!',
                 type: 'message',
             });
             break;
         }
         default: {
             // eslint-disable-next-line no-console
-            console.error('TicTacToe: Something bad happened', event);
+            console.error('TombalaGame: Something bad happened', event);
             break;
         }
         }
@@ -283,14 +283,14 @@ kiwi.plugin('tictactoe', (kiwi) => {
                     Utils.setGame(game.getRemotePlayer(), null);
                 }
             });
-            kiwi.emit('plugin-tictactoe.update-button');
+            kiwi.emit('plugin-tombala.update-button');
             return;
         }
 
         let game = Utils.getGame(event.nick);
         if (game && game.getInviteSent()) {
             Utils.setGame(game.getRemotePlayer(), null);
-            kiwi.emit('plugin-tictactoe.update-button');
+            kiwi.emit('plugin-tombala.update-button');
         }
     });
 

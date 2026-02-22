@@ -9,7 +9,7 @@ const winBoard = [
     [[0, 2], [1, 1], [2, 0]],
 ];
 
-export default class TicTacToe {
+export default class TombalaGame {
     constructor(network, localPlayer, remotePlayer) {
         // eslint-disable-next-line no-undef
         this.data = new kiwi.Vue({

@@ -1,9 +1,9 @@
-import TicTacToe from './TicTacToe.js';
+import TombalaGame from './TombalaGame.js';
 
 const games = {};
 
 export function newGame(network, localPlayer, remotePlayer) {
-    games[remotePlayer] = new TicTacToe(network, localPlayer, remotePlayer);
+    games[remotePlayer] = new TombalaGame(network, localPlayer, remotePlayer);
 }
 
 export function getGame(key) {
@@ -25,7 +25,7 @@ export function getGames() {
 export function sendData(network, target, data) {
     let msg = new network.ircClient.Message('TAGMSG', target);
     msg.prefix = network.nick;
-    msg.tags['+kiwiirc.com/ttt'] = JSON.stringify(data);
+    msg.tags['+kiwiirc.com/tombala'] = JSON.stringify(data);
     network.ircClient.raw(msg);
 }
 
@@ -48,7 +48,7 @@ export function terminateGame(game) {
             // eslint-disable-next-line no-undef
             kiwi.state.addMessage(buffer, {
                 nick: '*',
-                message: 'You ended the game of Tic-Tac-Toe!',
+                message: 'You ended the game of Tombala!',
                 type: 'message',
             });
         }
