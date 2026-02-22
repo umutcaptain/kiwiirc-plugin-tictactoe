@@ -66,6 +66,7 @@ export default class TombalaGame {
 
     verifyClaim(nick, singleWinnerPerStage = true) {
         const player = this.getPlayer(nick);
+        const player = this.players.get(nick);
         if (!player) {
             return { ok: false, message: `${nick} oyuna kayıtlı değil.` };
         }
