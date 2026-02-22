@@ -1,0 +1,5 @@
+{
+  "allowedChannels": ["#test", "#test1"],
+  "autoDrawIntervalMs": 30000,
+  "singleWinnerPerStage": true
+}
