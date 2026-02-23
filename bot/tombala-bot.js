@@ -8,7 +8,7 @@
  *
  * Env:
  *   IRC_HOST, IRC_PORT, IRC_TLS, IRC_TLS_REJECT_UNAUTHORIZED, IRC_NICK,
- *   IRC_USERNAME, IRC_REALNAME, IRC_PASS(optional)
+ *   IRC_USERNAME, IRC_REALNAME, IRC_PASS(optional), IRC_ADMIN_NICKS(optional)
  *   IRC_CHANNELS="#test,#test1"
  *   TOMBALA_INTERVAL_MS=30000
  */
@@ -19,6 +19,7 @@ const { generateCard } = require('../src/libs/tombala');
 
 const INTERVAL_MS = Number(process.env.TOMBALA_INTERVAL_MS || 30000);
 const CHANNELS = String(process.env.IRC_CHANNELS || '#test,#test1').split(',').map((x) => x.trim()).filter(Boolean);
+const ADMIN_NICKS = String(process.env.IRC_ADMIN_NICKS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
 const TLS_ENABLED = String(process.env.IRC_TLS || 'true').toLowerCase() !== 'false';
 const TLS_REJECT_UNAUTHORIZED = String(process.env.IRC_TLS_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false';
 
@@ -108,8 +109,58 @@ function drawNumber(client, channel) {
     publishState(client, channel);
 }
 
-function isOp(event) {
-    return !!(event.identify && (event.identify.mode || '').match(/[qao]/));
+function getKnownModeText(event) {
+    const parts = [];
+
+    if (event && event.identify && typeof event.identify.mode === 'string') {
+        parts.push(event.identify.mode);
+    }
+    if (event && event.identify && typeof event.identify.prefix === 'string') {
+        parts.push(event.identify.prefix);
+    }
+    if (event && typeof event.prefix === 'string') {
+        parts.push(event.prefix);
+    }
+
+    return parts.join('');
+}
+
+function isOpByClientState(client, channel, nick) {
+    if (!client || typeof client.channel !== 'function') {
+        return false;
+    }
+
+    const ch = client.channel(channel);
+    if (!ch || !ch.users) {
+        return false;
+    }
+
+    const user = ch.users[nick] || ch.users['@' + nick] || ch.users['+' + nick];
+    if (!user) {
+        return false;
+    }
+
+    const modeText = [
+        typeof user.mode === 'string' ? user.mode : '',
+        typeof user.modes === 'string' ? user.modes : '',
+        typeof user.prefix === 'string' ? user.prefix : '',
+    ].join('');
+
+    return /[qao@&~]/.test(modeText);
+}
+
+function isOp(client, event, channel) {
+    const nick = (event && event.nick ? event.nick : '').toLowerCase();
+
+    if (ADMIN_NICKS.includes(nick)) {
+        return true;
+    }
+
+    if (/[qao@&~]/.test(getKnownModeText(event))) {
+        return true;
+    }
+
+    return isOpByClientState(client, channel, event && event.nick);
 }
 
 const client = new IRC.Client();
@@ -184,7 +235,14 @@ client.on('message', (event) => {
         return;
     }
 
-    if (['baslat', 'basla', 'bitir', 'seed', 'cek'].includes(cmd) && !isOp(event)) {
+    if (['baslat', 'basla', 'bitir', 'seed', 'cek'].includes(cmd) && !isOp(client, event, channel)) {
+        console.warn('[tombala-bot] op-check failed', {
+            nick: event.nick,
+            channel,
+            identifyMode: event && event.identify ? event.identify.mode : null,
+            identifyPrefix: event && event.identify ? event.identify.prefix : null,
+            configuredAdmins: ADMIN_NICKS,
+        });
         client.say(channel, `${event.nick}: Bu komut sadece kanal operatörleri tarafından kullanılabilir.`);
         return;
     }

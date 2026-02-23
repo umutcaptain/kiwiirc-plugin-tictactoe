@@ -55,12 +55,17 @@ IRC_HOST=irc.example.net \
 IRC_PORT=6697 \
 IRC_TLS=true \
 IRC_TLS_REJECT_UNAUTHORIZED=true \
+IRC_ADMIN_NICKS="test,umut" \
 IRC_NICK=TombalaBot \
 IRC_CHANNELS="#test,#test1" \
 TOMBALA_INTERVAL_MS=30000 \
 node bot/tombala-bot.js
 ```
 
+
+Admin algılama:
+- Bot önce IRC mode/prefix bilgisinden operatörü tespit eder.
+- Bazı ağlarda mode bilgisi event içinde gelmiyorsa fallback olarak `IRC_ADMIN_NICKS` kullan.
 
 Bağlantı tanılama (debug):
 - Bot açılırken host/port/tls bilgilerini konsola yazar.
