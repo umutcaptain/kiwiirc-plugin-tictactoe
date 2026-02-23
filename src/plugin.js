@@ -101,15 +101,11 @@ kiwi.plugin('tombala', function (kiwi) {
         kiwi.emit('mediaviewer.show', { component: TombalaPanel });
     });
 
-    kiwi.on('irc.raw.PRIVMSG', function (command, event, network) {
+    function handleWireEvent(event, network) {
         var params = event && event.params ? event.params : [];
-        var target = params[0];
         var message = params[1];
 
-        if (!isChannelName(target) || typeof message !== 'string') {
-            return;
-        }
-        if (config.allowedChannels.indexOf(target) === -1) {
+        if (typeof message !== 'string') {
             return;
         }
 
@@ -126,12 +122,28 @@ kiwi.plugin('tombala', function (kiwi) {
             return;
         }
 
-        var state = uiStore.get(target) || defaultState();
+        var channel = eventData && eventData.channel;
+        if (!isChannelName(channel)) {
+            return;
+        }
+        if (config.allowedChannels.indexOf(channel) === -1) {
+            return;
+        }
+
+        var state = uiStore.get(channel) || defaultState();
         var localNick = network ? network.nick : null;
         var nextState = applyEventToState(state, eventData, localNick);
         recomputeMarks(nextState);
-        uiStore.set(target, nextState);
-        updateUi(target);
+        uiStore.set(channel, nextState);
+        updateUi(channel);
+    }
+
+    kiwi.on('irc.raw.PRIVMSG', function (command, event, network) {
+        handleWireEvent(event, network);
+    });
+
+    kiwi.on('irc.raw.NOTICE', function (command, event, network) {
+        handleWireEvent(event, network);
     });
 
     kiwi.state.$watch('ui.active_buffer', function () {

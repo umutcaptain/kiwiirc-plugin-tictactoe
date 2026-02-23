@@ -84,7 +84,41 @@ function newGame(seed) {
 
 const games = new Map();
 
+function listChannelNicks(client, channel) {
+    if (!client || typeof client.channel !== 'function') {
+        return [];
+    }
+
+    const ch = client.channel(channel);
+    const users = ch && ch.users ? ch.users : null;
+    if (!users) {
+        return [];
+    }
+
+    const botNick = normalizeNick(process.env.IRC_NICK || 'TombalaBot');
+    const uniq = new Set();
+
+    Object.keys(users).forEach((key) => {
+        const n = normalizeNick(key);
+        if (n && n !== botNick) {
+            uniq.add(n);
+        }
+    });
+
+    return Array.from(uniq);
+}
+
+function sendEventToNick(client, nick, payload) {
+    const text = `!tombala-event ${JSON.stringify(payload)}`;
+    if (typeof client.notice === 'function') {
+        client.notice(nick, text);
+        return;
+    }
+    client.say(nick, text);
+}
+
 function emitEvent(client, channel, payload) {
+
     client.say(channel, `!tombala-event ${JSON.stringify(payload)}`);
 }
 
@@ -325,11 +359,15 @@ client.on('message', (event) => {
             return;
         }
 
-        if (!game.players.has(event.nick.toLowerCase())) {
-            game.players.set(event.nick.toLowerCase(), { nick: event.nick, card: generateCard(`${channel}:${event.nick}`) });
+        const key = event.nick.toLowerCase();
+        if (game.players.has(key)) {
+            client.say(channel, `${event.nick}: Zaten oyuna katıldın.`);
+            return;
         }
 
-        const player = game.players.get(event.nick.toLowerCase());
+        game.players.set(key, { nick: event.nick, card: generateCard(`${channel}:${event.nick}`) });
+
+        const player = game.players.get(key);
         emitEvent(client, channel, { type: 'card', nick: player.nick, card: player.card });
         client.say(channel, `${event.nick} oyuna katıldı. Toplam oyuncu: ${game.players.size}`);
         publishState(client, channel);

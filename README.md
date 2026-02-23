@@ -10,7 +10,7 @@ Bu plugin artık **server-authoritative** mimariyle çalışır:
 
 1. Kullanıcılar kanalda `!tombala ...` komutları gönderir.
 2. Tombala botu komutu işler ve state üretir.
-3. Bot kanala `!tombala-event <json>` yayınlar.
+3. Bot event payload'larını kanal yerine kullanıcılara `NOTICE/PM` olarak `!tombala-event <json>` gönderir (kanal ekranını kirletmez).
 4. Plugin sadece bu event'leri okuyup paneli günceller.
 
 ## Build
@@ -85,7 +85,7 @@ IRC_TLS_REJECT_UNAUTHORIZED=false
 
 - `!tombala yardim`
 - `!tombala baslat`
-- `!tombala katil`
+- `!tombala katil` (aynı kullanıcı tekrar denerse bot yeniden kart/event basmaz, sadece uyarır)
 - `!tombala basla`
 - `!tombala cek`
 - `!tombala durum`
@@ -95,7 +95,7 @@ IRC_TLS_REJECT_UNAUTHORIZED=false
 
 ## Event formatı
 
-Bot kanala şu formatta yayın yapar:
+Bot istemcilere şu formatta event gönderir:
 
 ```text
 !tombala-event {"type":"state", ...}
