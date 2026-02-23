@@ -143,18 +143,40 @@ function getKnownModeText(event) {
     return parts.join('');
 }
 
+function findUserFromChannelState(ch, nick) {
+    const target = normalizeNick(nick);
+    const users = ch && ch.users ? ch.users : null;
+    if (!users) {
+        return null;
+    }
+
+    const direct = users[target] || users[nick] || users['@' + target] || users['+' + target] || users['&' + target] || users['~' + target];
+    if (direct) {
+        return direct;
+    }
+
+    const keys = Object.keys(users);
+    for (let i = 0; i < keys.length; i += 1) {
+        const key = keys[i];
+        if (normalizeNick(key) === target) {
+            return users[key];
+        }
+    }
+
+    return null;
+}
+
 function isOpByClientState(client, channel, nick) {
     if (!client || typeof client.channel !== 'function') {
         return false;
     }
 
-    const cleanNick = normalizeNick(nick);
     const ch = client.channel(channel);
     if (!ch || !ch.users) {
         return false;
     }
 
-    const user = ch.users[cleanNick] || ch.users[nick] || ch.users['@' + cleanNick] || ch.users['+' + cleanNick];
+    const user = findUserFromChannelState(ch, nick);
     if (!user) {
         return false;
     }
@@ -163,9 +185,14 @@ function isOpByClientState(client, channel, nick) {
         modeTokenText(user.mode),
         modeTokenText(user.modes),
         modeTokenText(user.prefix),
+        modeTokenText(user.nick),
     ].join('');
 
-    return /[qao@&~]/.test(modeText);
+    if (/[qao@&~]/.test(modeText)) {
+        return true;
+    }
+
+    return !!(user.isOp || user.isOper || user.op || user.owner || user.admin);
 }
 
 function isOp(client, event, channel) {
