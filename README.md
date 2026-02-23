@@ -66,6 +66,7 @@ node bot/tombala-bot.js
 Admin algılama:
 - Bot önce IRC mode/prefix bilgisinden operatörü tespit eder.
 - Bazı ağlarda mode bilgisi event içinde gelmiyorsa fallback olarak `IRC_ADMIN_NICKS` kullan.
+- Prefixli nick formatları (örn. `@nick`, `&nick`, `~nick`) normalize edilerek değerlendirilir.
 
 Bağlantı tanılama (debug):
 - Bot açılırken host/port/tls bilgilerini konsola yazar.

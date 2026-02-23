@@ -33,6 +33,22 @@ if (!CHANNELS.length) {
     process.exit(1);
 }
 
+
+function normalizeNick(nick) {
+    const text = String(nick || '');
+    return text.replace(/^[~&@%+]+/, '').toLowerCase();
+}
+
+function modeTokenText(value) {
+    if (Array.isArray(value)) {
+        return value.join('');
+    }
+    if (typeof value === 'string') {
+        return value;
+    }
+    return '';
+}
+
 function cardNumbers(card) {
     return card.flat().filter((n) => n !== null);
 }
@@ -112,14 +128,16 @@ function drawNumber(client, channel) {
 function getKnownModeText(event) {
     const parts = [];
 
-    if (event && event.identify && typeof event.identify.mode === 'string') {
-        parts.push(event.identify.mode);
+    if (event && event.identify) {
+        parts.push(modeTokenText(event.identify.mode));
+        parts.push(modeTokenText(event.identify.modes));
+        parts.push(modeTokenText(event.identify.prefix));
     }
-    if (event && event.identify && typeof event.identify.prefix === 'string') {
-        parts.push(event.identify.prefix);
-    }
-    if (event && typeof event.prefix === 'string') {
-        parts.push(event.prefix);
+    if (event) {
+        parts.push(modeTokenText(event.mode));
+        parts.push(modeTokenText(event.modes));
+        parts.push(modeTokenText(event.prefix));
+        parts.push(modeTokenText(event.nick));
     }
 
     return parts.join('');
@@ -130,27 +148,28 @@ function isOpByClientState(client, channel, nick) {
         return false;
     }
 
+    const cleanNick = normalizeNick(nick);
     const ch = client.channel(channel);
     if (!ch || !ch.users) {
         return false;
     }
 
-    const user = ch.users[nick] || ch.users['@' + nick] || ch.users['+' + nick];
+    const user = ch.users[cleanNick] || ch.users[nick] || ch.users['@' + cleanNick] || ch.users['+' + cleanNick];
     if (!user) {
         return false;
     }
 
     const modeText = [
-        typeof user.mode === 'string' ? user.mode : '',
-        typeof user.modes === 'string' ? user.modes : '',
-        typeof user.prefix === 'string' ? user.prefix : '',
+        modeTokenText(user.mode),
+        modeTokenText(user.modes),
+        modeTokenText(user.prefix),
     ].join('');
 
     return /[qao@&~]/.test(modeText);
 }
 
 function isOp(client, event, channel) {
-    const nick = (event && event.nick ? event.nick : '').toLowerCase();
+    const nick = normalizeNick(event && event.nick ? event.nick : '');
 
     if (ADMIN_NICKS.includes(nick)) {
         return true;
@@ -238,6 +257,7 @@ client.on('message', (event) => {
     if (['baslat', 'basla', 'bitir', 'seed', 'cek'].includes(cmd) && !isOp(client, event, channel)) {
         console.warn('[tombala-bot] op-check failed', {
             nick: event.nick,
+            normalizedNick: normalizeNick(event.nick),
             channel,
             identifyMode: event && event.identify ? event.identify.mode : null,
             identifyPrefix: event && event.identify ? event.identify.prefix : null,
