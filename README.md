@@ -54,11 +54,25 @@ npm i irc-framework seedrandom
 IRC_HOST=irc.example.net \
 IRC_PORT=6697 \
 IRC_TLS=true \
+IRC_TLS_REJECT_UNAUTHORIZED=true \
 IRC_NICK=TombalaBot \
 IRC_CHANNELS="#test,#test1" \
 TOMBALA_INTERVAL_MS=30000 \
 node bot/tombala-bot.js
 ```
+
+
+Bağlantı tanılama (debug):
+- Bot açılırken host/port/tls bilgilerini konsola yazar.
+- `registered`, `join`, `socket close`, `close`, `error` ve IRC `4xx/5xx` cevapları loglanır.
+
+Eğer test ortamında self-signed sertifika varsa geçici olarak:
+
+```bash
+IRC_TLS_REJECT_UNAUTHORIZED=false
+```
+
+(Not: Bu ayar üretimde önerilmez.)
 
 ## Komutlar
 

@@ -7,7 +7,8 @@
  *   npm i irc-framework seedrandom
  *
  * Env:
- *   IRC_HOST, IRC_PORT, IRC_TLS, IRC_NICK, IRC_USERNAME, IRC_REALNAME, IRC_PASS(optional)
+ *   IRC_HOST, IRC_PORT, IRC_TLS, IRC_TLS_REJECT_UNAUTHORIZED, IRC_NICK,
+ *   IRC_USERNAME, IRC_REALNAME, IRC_PASS(optional)
  *   IRC_CHANNELS="#test,#test1"
  *   TOMBALA_INTERVAL_MS=30000
  */
@@ -18,6 +19,18 @@ const { generateCard } = require('../src/libs/tombala');
 
 const INTERVAL_MS = Number(process.env.TOMBALA_INTERVAL_MS || 30000);
 const CHANNELS = String(process.env.IRC_CHANNELS || '#test,#test1').split(',').map((x) => x.trim()).filter(Boolean);
+const TLS_ENABLED = String(process.env.IRC_TLS || 'true').toLowerCase() !== 'false';
+const TLS_REJECT_UNAUTHORIZED = String(process.env.IRC_TLS_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false';
+
+if (!process.env.IRC_HOST) {
+    console.error('[tombala-bot] ERROR: IRC_HOST zorunlu. Örn: IRC_HOST=irc.sunucu.net');
+    process.exit(1);
+}
+
+if (!CHANNELS.length) {
+    console.error('[tombala-bot] ERROR: IRC_CHANNELS boş olamaz. Örn: IRC_CHANNELS="#test,#test1"');
+    process.exit(1);
+}
 
 function cardNumbers(card) {
     return card.flat().filter((n) => n !== null);
@@ -100,10 +113,22 @@ function isOp(event) {
 }
 
 const client = new IRC.Client();
+
+console.log('[tombala-bot] connecting', {
+    host: process.env.IRC_HOST,
+    port: Number(process.env.IRC_PORT || 6697),
+    tls: TLS_ENABLED,
+    tlsRejectUnauthorized: TLS_REJECT_UNAUTHORIZED,
+    nick: process.env.IRC_NICK || 'TombalaBot',
+    channels: CHANNELS,
+    intervalMs: INTERVAL_MS,
+});
+
 client.connect({
     host: process.env.IRC_HOST,
     port: Number(process.env.IRC_PORT || 6697),
-    tls: String(process.env.IRC_TLS || 'true').toLowerCase() !== 'false',
+    tls: TLS_ENABLED,
+    rejectUnauthorized: TLS_REJECT_UNAUTHORIZED,
     nick: process.env.IRC_NICK || 'TombalaBot',
     username: process.env.IRC_USERNAME || 'tombala',
     gecos: process.env.IRC_REALNAME || 'Tombala Authority Bot',
@@ -111,7 +136,36 @@ client.connect({
 });
 
 client.on('registered', () => {
+    console.log('[tombala-bot] registered, joining channels:', CHANNELS.join(', '));
     CHANNELS.forEach((ch) => client.join(ch));
+});
+
+client.on('join', (event) => {
+    if (event.nick === (process.env.IRC_NICK || 'TombalaBot')) {
+        console.log('[tombala-bot] joined channel:', event.channel);
+    }
+});
+
+client.on('socket close', (evt) => {
+    console.error('[tombala-bot] socket close', evt || {});
+});
+
+client.on('close', (evt) => {
+    console.error('[tombala-bot] close', evt || {});
+});
+
+client.on('error', (err) => {
+    console.error('[tombala-bot] error', err);
+});
+
+client.on('raw', (event) => {
+    if (!event || !event.command) {
+        return;
+    }
+    const cmd = String(event.command);
+    if (/^(4|5)\d\d$/.test(cmd)) {
+        console.error('[tombala-bot] IRC error reply', cmd, event.params || []);
+    }
 });
 
 client.on('message', (event) => {
@@ -247,6 +301,5 @@ client.on('message', (event) => {
         games.delete(channel);
         client.say(channel, 'Oyun sonlandırıldı.');
         emitEvent(client, channel, { type: 'reset' });
-        return;
     }
 });
