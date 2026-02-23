@@ -22,6 +22,7 @@ const CHANNELS = String(process.env.IRC_CHANNELS || '#test,#test1').split(',').m
 const ADMIN_NICKS = String(process.env.IRC_ADMIN_NICKS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
 const TLS_ENABLED = String(process.env.IRC_TLS || 'true').toLowerCase() !== 'false';
 const TLS_REJECT_UNAUTHORIZED = String(process.env.IRC_TLS_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false';
+const STRICT_OP_CHECK = String(process.env.IRC_STRICT_OP_CHECK || 'false').toLowerCase() === 'true';
 
 if (!process.env.IRC_HOST) {
     console.error('[tombala-bot] ERROR: IRC_HOST zorunlu. Örn: IRC_HOST=irc.sunucu.net');
@@ -118,8 +119,14 @@ function sendEventToNick(client, nick, payload) {
 }
 
 function emitEvent(client, channel, payload) {
+    const envelope = Object.assign({ channel }, payload);
+    const recipients = listChannelNicks(client, channel);
 
-    client.say(channel, `!tombala-event ${JSON.stringify(payload)}`);
+    if (!recipients.length) {
+        return;
+    }
+
+    recipients.forEach((nick) => sendEventToNick(client, nick, envelope));
 }
 
 function publishState(client, channel) {
@@ -202,17 +209,17 @@ function findUserFromChannelState(ch, nick) {
 
 function isOpByClientState(client, channel, nick) {
     if (!client || typeof client.channel !== 'function') {
-        return false;
+        return null;
     }
 
     const ch = client.channel(channel);
     if (!ch || !ch.users) {
-        return false;
+        return null;
     }
 
     const user = findUserFromChannelState(ch, nick);
     if (!user) {
-        return false;
+        return null;
     }
 
     const modeText = [
@@ -226,7 +233,12 @@ function isOpByClientState(client, channel, nick) {
         return true;
     }
 
-    return !!(user.isOp || user.isOper || user.op || user.owner || user.admin);
+    if (user.isOp || user.isOper || user.op || user.owner || user.admin) {
+        return true;
+    }
+
+    // user bulundu ama op işareti yok -> net false
+    return false;
 }
 
 function isOp(client, event, channel) {
@@ -240,7 +252,17 @@ function isOp(client, event, channel) {
         return true;
     }
 
-    return isOpByClientState(client, channel, event && event.nick);
+    const stateCheck = isOpByClientState(client, channel, event && event.nick);
+    if (stateCheck === true) {
+        return true;
+    }
+
+    if (stateCheck === null && !STRICT_OP_CHECK) {
+        // ağ op bilgisini iletmiyorsa yanlış bloklamamak için izin ver
+        return true;
+    }
+
+    return false;
 }
 
 const client = new IRC.Client();
@@ -253,6 +275,7 @@ console.log('[tombala-bot] connecting', {
     nick: process.env.IRC_NICK || 'TombalaBot',
     channels: CHANNELS,
     intervalMs: INTERVAL_MS,
+    strictOpCheck: STRICT_OP_CHECK,
 });
 
 client.connect({

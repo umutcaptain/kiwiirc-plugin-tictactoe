@@ -56,6 +56,7 @@ IRC_PORT=6697 \
 IRC_TLS=true \
 IRC_TLS_REJECT_UNAUTHORIZED=true \
 IRC_ADMIN_NICKS="test,umut" \
+IRC_STRICT_OP_CHECK=false \
 IRC_NICK=TombalaBot \
 IRC_CHANNELS="#test,#test1" \
 TOMBALA_INTERVAL_MS=30000 \
@@ -68,6 +69,7 @@ Admin algılama:
 - Bazı ağlarda mode bilgisi event içinde gelmiyorsa fallback olarak `IRC_ADMIN_NICKS` kullan.
 - `IRC_ADMIN_NICKS` additif çalışır; listede olmasa da kanal operatörleri yine yetkili kabul edilir.
 - Prefixli nick formatları (örn. `@nick`, `&nick`, `~nick`) normalize edilerek değerlendirilir.
+- `IRC_STRICT_OP_CHECK=false` (default) ise op bilgisi hiç gelmediğinde yanlış red vermemek için izin verilir.
 
 Bağlantı tanılama (debug):
 - Bot açılırken host/port/tls bilgilerini konsola yazar.
